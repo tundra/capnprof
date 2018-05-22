@@ -200,7 +200,10 @@ std::ostream &capnprof::operator<<(std::ostream &out, const Trace &trace) {
 
 void Trace::print(std::ostream &out) {
   out << "TRACE " << serial_ << ":" << std::endl;
-  out << "    " << *this << std::endl;
+  for (uint32_t i = 0; i < depth(); i++) {
+    const TraceLink &part = path()[depth() - i - 1];
+    out << "    " << part.repr() << std::endl;
+  }
 }
 
 Trace::~Trace() {

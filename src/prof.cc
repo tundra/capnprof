@@ -1,5 +1,7 @@
 #include "prof.hh"
 
+#include "zipprof.h"
+
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 
@@ -8,10 +10,18 @@
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
+#include <set>
 
 using namespace capnprof;
 using namespace capnp;
 using namespace kj;
+
+double DeflateHeatMap::weight(uint32_t first_byte, uint32_t limit_byte) {
+  double result = 0;
+  for (uint32_t i = first_byte; i < limit_byte; i++)
+    result += profile_.literal_contribution(i);
+  return result;
+}
 
 InputMap::InputMap(HeatMap &heat_map, kj::ArrayPtr<const capnp::word> data)
     : heat_map_(heat_map)
@@ -88,7 +98,10 @@ void Profiler::profile_list(TracePath &path, DynamicList::Reader reader) {
       path.add_data(bytes);
       break;
     }
-    case schema::Type::Which::STRUCT: {
+    case schema::Type::Which::STRUCT:
+    case schema::Type::Which::DATA:
+    case schema::Type::Which::TEXT:
+    case schema::Type::Which::LIST: {
       TracePath inner(path, TraceLink::Type::ARRAY);
       for (auto value: reader)
         profile_value(inner, value);
@@ -228,21 +241,44 @@ Trace &Profiler::root() {
 }
 
 void Profiler::profile(std::string struct_name, ArrayPtr<const word> data) {
+  InputMap input_map(*heat_map_, data);
+  TraceContext context(trace_depth_, pool_, &input_map);
+  profile_with_context(struct_name, data, context);
+}
+
+void Profiler::profile_archive(std::string struct_name, ArrayPtr<const uint8_t> data) {
+  zipprof::Archive archive(zipprof::Array<const uint8_t>(data.begin(), data.size()));
+  for (std::string path : archive.entries()) {
+    zipprof::DeflateProfile profile = archive.profile(path);
+    zipprof::Array<const uint8_t> bytes = profile.contents();
+    ArrayPtr<const word> words(reinterpret_cast<const word*>(bytes.begin()),
+        bytes.size() /  sizeof(word));
+    DeflateHeatMap heat_map(profile);
+    InputMap input_map(heat_map, words);
+    TraceContext context(trace_depth_, pool_, &input_map);
+    profile_with_context(struct_name, words, context);
+  }
+}
+
+void Profiler::profile_with_context(std::string struct_name,
+    kj::ArrayPtr<const capnp::word> data, TraceContext &context) {
   ParsedSchema schema = parsed_schema_.getNested(struct_name);
   capnp::FlatArrayMessageReader message(data);
   capnp::DynamicStruct::Reader reader = message.getRoot<capnp::DynamicStruct>(schema.asStruct());
-  InputMap input_map(*heat_map_, data);
-  TraceContext context(trace_depth_, pool_, &input_map);
   TracePath root(context);
   profile_struct(root, reader);
 }
 
-void Profiler::dump(Trace::Order order) {
+void Profiler::dump(Trace::Order order, uint32_t limit) {
   std::vector<Trace*> traces;
   pool_.flush(order, false, &traces);
   uint32_t rank = 1;
   fprintf(stdout, "rank #trc     self    accum    zself   zaccum path\n");
+  std::set<uint32_t> serials_seen;
   for (Trace* trace : traces) {
+    if (rank > limit)
+      break;
+    serials_seen.insert(trace->serial());
     Stats &stats = trace->stats();
     char self_bytes[32];
     format_bytes(stats.self_bytes(), self_bytes, 32);
@@ -260,10 +296,13 @@ void Profiler::dump(Trace::Order order) {
         accum_bytes, self_weight, accum_weight, path.c_str(), dots);
     rank += 1;
   }
+  fprintf(stdout, "\n");
 
   traces.clear();
   pool_.flush(Trace::Order::SERIAL, false, &traces);
   for (Trace *trace : traces) {
+    if (serials_seen.find(trace->serial()) == serials_seen.end())
+      continue;
     trace->print(std::cout);
     std::cout << std::endl;
   }

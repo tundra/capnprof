@@ -29,9 +29,10 @@ public:
   Profiler &add_include_path(std::string path);
   Profiler &parse_schema(std::string path);
   Profiler &set_heat_map(HeatMap &value);
-  void dump(Trace::Order order = Trace::Order::SELF_BYTES);
+  void dump(Trace::Order order = Trace::Order::SELF_BYTES, uint32_t limit = 0);
 
   void profile(std::string struct_name, kj::ArrayPtr<const capnp::word> data);
+  void profile_archive(std::string struct_name, kj::ArrayPtr<const uint8_t> data);
   capnp::ParsedSchema &parsed_schema() { return parsed_schema_; }
   Profiler &set_trace_depth(uint32_t value);
 
@@ -39,6 +40,9 @@ public:
   Trace &root();
 
 private:
+  void profile_with_context(std::string struct_name,
+      kj::ArrayPtr<const capnp::word> data, TraceContext &context);
+
   void profile_struct(TracePath &path, capnp::DynamicStruct::Reader reader);
   void profile_value(TracePath &path, capnp::DynamicValue::Reader reader);
   void profile_list(TracePath &path, capnp::DynamicList::Reader reader);

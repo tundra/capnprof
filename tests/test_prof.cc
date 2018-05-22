@@ -95,22 +95,6 @@ static void profile_struct(Profiler &profiler, std::string struct_name,
   KJ_ASSERT(profiler.root().stats().accum_bytes() < bytes.size());
 }
 
-class DeflateHeatMap : public HeatMap {
-public:
-  DeflateHeatMap(zipprof::DeflateProfile &profile)
-      : profile_(profile) { }
-  virtual double weight(uint32_t first_byte, uint32_t limit_byte);
-private:
-  zipprof::DeflateProfile &profile_;
-};
-
-double DeflateHeatMap::weight(uint32_t first_byte, uint32_t limit_byte) {
-  double result = 0;
-  for (uint32_t i = first_byte; i < limit_byte; i++)
-    result += profile_.literal_contribution(i);
-  return result;
-}
-
 static void profile_struct_zipped(Profiler &profiler, std::string struct_name,
     const zipprof::Compressor &compr, std::function<void (DynamicStruct::Builder&)> thunk) {
   VectorOutputStream out;
