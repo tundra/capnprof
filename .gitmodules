@@ -1,0 +1,6 @@
+[submodule "deps/zipprof"]
+	path = deps/zipprof
+	url = git@github.com:tundra/zipprof.git
+[submodule "deps/capnproto"]
+	path = deps/capnproto
+	url = git@github.com:capnproto/capnproto.git
