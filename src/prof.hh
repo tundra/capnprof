@@ -29,7 +29,8 @@ public:
   Profiler &add_include_path(std::string path);
   Profiler &parse_schema(std::string path);
   Profiler &set_heat_map(HeatMap &value);
-  void dump(Trace::Order order = Trace::Order::SELF_BYTES, uint32_t limit = 0);
+  void dump(Trace::Order order = Trace::Order::SELF_BYTES,
+      bool reverse = false, uint32_t limit = 0, uint32_t cutoff_bytes = 0);
 
   void profile(std::string struct_name, kj::ArrayPtr<const capnp::word> data);
   void profile_archive(std::string struct_name, kj::ArrayPtr<const uint8_t> data);

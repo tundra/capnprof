@@ -269,15 +269,19 @@ void Profiler::profile_with_context(std::string struct_name,
   profile_struct(root, reader);
 }
 
-void Profiler::dump(Trace::Order order, uint32_t limit) {
+void Profiler::dump(Trace::Order order, bool reverse, uint32_t limit,
+    uint32_t cutoff_bytes) {
   std::vector<Trace*> traces;
-  pool_.flush(order, false, &traces);
+  pool_.flush(order, reverse, &traces);
   uint32_t rank = 1;
-  fprintf(stdout, "rank #trc     self    accum    zself   zaccum path\n");
+  fprintf(stdout, "rank #trc     self    accum    zself   zaccum   zself%%  zaccum%% path\n");
   std::set<uint32_t> serials_seen;
   for (Trace* trace : traces) {
-    if (rank > limit)
+    if (rank > limit) {
       break;
+    } else if (trace->stats().accum_bytes() < cutoff_bytes) {
+      continue;
+    }
     serials_seen.insert(trace->serial());
     Stats &stats = trace->stats();
     char self_bytes[32];
@@ -292,8 +296,10 @@ void Profiler::dump(Trace::Order order, uint32_t limit) {
     buf << *trace;
     std::string path = buf.str();
     const char *dots = (path.size() > 32) ? "..." : "";
-    fprintf(stdout, "%4i %4i %8s %8s %8s %8s %.32s%s\n", rank, trace->serial(), self_bytes,
-        accum_bytes, self_weight, accum_weight, path.c_str(), dots);
+    fprintf(stdout, "%4i %4i %8s %8s %8s %8s %7.1f%% %7.1f%% %.32s%s\n", rank,
+        trace->serial(), self_bytes, accum_bytes, self_weight, accum_weight,
+        stats.self_factor() * 100, stats.accum_factor() * 100, path.c_str(),
+        dots);
     rank += 1;
   }
   fprintf(stdout, "\n");

@@ -296,6 +296,10 @@ void TracePool::flush(Trace::Order order, bool reverse, std::vector<Trace*> *tra
     return flush(Trace::by_stat(&Stats::self_weight), reverse, traces_out);
   case Trace::Order::ACCUM_WEIGHT:
     return flush(Trace::by_stat(&Stats::accum_weight), reverse, traces_out);
+  case Trace::Order::SELF_FACTOR:
+    return flush(Trace::by_stat(&Stats::self_factor), reverse, traces_out);
+  case Trace::Order::ACCUM_FACTOR:
+    return flush(Trace::by_stat(&Stats::accum_factor), reverse, traces_out);
   default:
     break;
   }

@@ -112,6 +112,8 @@ public:
     SELF_POINTER_WEIGHT,
     SELF_WEIGHT,
     ACCUM_WEIGHT,
+    SELF_FACTOR,
+    ACCUM_FACTOR,
   };
 
   Trace(const TracePath &path, uint32_t serial);

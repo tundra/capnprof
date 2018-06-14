@@ -32,6 +32,11 @@ public:
   double child_weight() const { return child_data_weight() + child_pointer_weight(); }
   double accum_weight() const { return self_weight() + child_weight(); }
 
+  double self_factor() const { return safediv(self_weight(), self_bytes()); }
+  double accum_factor() const { return safediv(accum_weight(), accum_bytes()); }
+
+  static double safediv(double a, double b) { return (b == 0) ? 0 : (a / b); }
+
 private:
   friend class TracePath;
   uint32_t self_data_bytes_;
